@@ -104,6 +104,11 @@ This only affects inserting pairs, not deleting or changing them."
   :type '(repeat symbol)
   :group 'evil-surround)
 
+(defcustom evil-surround-latex-modes '(latex-mode LaTeX-mode)
+  "List of latex-related modes"
+  :type '(repeat symbol)
+  :group 'evil-surround)
+
 (defcustom evil-surround-operator-alist
   '((evil-change . change)
     (evil-delete . delete))
@@ -132,10 +137,15 @@ Each item is of the form (OPERATOR . OPERATION)."
 
 (defun evil-surround-function ()
   "Read a functionname from the minibuffer and wrap selection in function call"
-  (let ((fname (evil-surround-read-from-minibuffer "" "")))
-    (cons (format (if (member major-mode evil-surround-lisp-modes)
-		      "(%s " "%s(")
-		  (or fname "")) ")")))
+  (let ((fname (evil-surround-read-from-minibuffer "" ""))
+        (deli (cond ((member major-mode evil-surround-lisp-modes)
+                     (cons "(%s " ")"))
+                    ((member major-mode evil-surround-latex-modes)
+                     (cons "\\%s{" "}"))
+                    (t
+                     (cons "%s(" ")")))))
+    (cons (format (car deli) (or fname ""))
+          (cdr deli))))
 
 (defun evil-surround-read-tag ()
   "Read a XML tag from the minibuffer."
