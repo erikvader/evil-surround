@@ -58,12 +58,14 @@
     (?\} . ("{" . "}"))
 
     (?# . ("#{" . "}"))
-    (?b . ("(" . ")"))
+    ;; (?b . ("(" . ")"))
     (?B . ("{" . "}"))
     (?> . ("<" . ">"))
     (?t . evil-surround-read-tag)
     (?< . evil-surround-read-tag)
-    (?f . evil-surround-function))
+    (?f . evil-surround-function)
+    (?b . evil-surround-between)
+    (?g . evil-surround-generic))
   "Association list of surround items.
 Each item is of the form (TRIGGER . (LEFT . RIGHT)), all strings.
 Alternatively, a function can be put in place of (LEFT . RIGHT).
@@ -126,6 +128,13 @@ Each item is of the form (OPERATOR . OPERATION)."
 
 (defvar evil-surround-record-repeat nil
   "Flag to indicate we're manually recording repeat info.")
+
+(defvar evil-surround-overlaying nil
+  "Whether or not we are currently gathering data for the overlays to
+  use. Useful to know if a text object wants to get input from the
+  user and don't want to get asked twice when changing or deleting.")
+
+(defvar evil-surround-overlaying-args nil)
 
 (defun evil-surround-read-from-minibuffer (&rest args)
   (when evil-surround-record-repeat
@@ -263,6 +272,7 @@ between these overlays is what is deleted."
     ;; no overlays specified: create them on the basis of CHAR
     ;; and delete after use
     (let* ((outer (evil-surround-outer-overlay char))
+           (evil-surround-overlaying t)
            (inner (evil-surround-inner-overlay char)))
       (unwind-protect
           (when (and outer inner)
@@ -285,6 +295,7 @@ overlays OUTER and INNER, which are passed to `evil-surround-delete'."
                             nil (if (evil-surround-valid-char-p key) key char))))
    (t
     (let* ((outer (evil-surround-outer-overlay char))
+           (evil-surround-overlaying t)
            (inner (evil-surround-inner-overlay char)))
       (unwind-protect
           (when (and outer inner)
@@ -457,11 +468,53 @@ Becomes this:
   evil-surround-mode turn-on-evil-surround-mode
   "Global minor mode to emulate surround.vim.")
 
+(defun evil-surround-generic-object (single inclusive count beg end type)
+  (let ((text (if evil-surround-overlaying
+                  evil-surround-overlaying-args
+                (regexp-quote (if single
+                                  (string (read-char))
+                                (read-from-minibuffer "" ""))))))
+    (when (not evil-surround-overlaying)
+      (setq evil-surround-overlaying-args text))
+    (evil-select-paren text text beg end type count inclusive)))
+
+(evil-define-text-object evil-surround-generic-outer-text-object (count &optional beg end type)
+  (evil-surround-generic-object nil t count beg end type))
+
+(evil-define-text-object evil-surround-generic-inner-text-object (count &optional beg end type)
+  (evil-surround-generic-object nil nil count beg end type))
+
+(evil-define-text-object evil-surround-between-outer-text-object (count &optional beg end type)
+  (evil-surround-generic-object t t count beg end type))
+
+(evil-define-text-object evil-surround-between-inner-text-object (count &optional beg end type)
+  (evil-surround-generic-object t nil count beg end type))
+
+(defun evil-surround-between ()
+  (let ((text (string (read-char))))
+    (cons text text)))
+
+(defun evil-surround-generic ()
+  (let ((text (read-from-minibuffer "" "")))
+    (cons text text)))
+
 (evil-define-key 'operator evil-surround-mode-map "s" 'evil-surround-edit)
 (evil-define-key 'operator evil-surround-mode-map "S" 'evil-Surround-edit)
 
 (evil-define-key 'visual evil-surround-mode-map "S" 'evil-surround-region)
 (evil-define-key 'visual evil-surround-mode-map "gS" 'evil-Surround-region)
+
+;; (evil-define-key '(operator visual) evil-surround-mode-map (kbd "i g") 'evil-surround-generic-inner-text-object)
+;; (evil-define-key '(operator visual) evil-surround-mode-map (kbd "a g") 'evil-surround-generic-outer-text-object)
+;; (evil-define-key '(operator visual) evil-surround-mode-map (kbd "i b") 'evil-surround-between-inner-text-object)
+;; (evil-define-key '(operator visual) evil-surround-mode-map (kbd "a b") 'evil-surround-between-outer-text-object)
+
+(defun evil-surround-install-text-objects ()
+  "Adds some textobjects to `evil-inner-text-objects-map' and `evil-outer-text-objects-map'"
+  (define-key evil-inner-text-objects-map "g" 'evil-surround-generic-inner-text-object)
+  (define-key evil-outer-text-objects-map "g" 'evil-surround-generic-outer-text-object)
+  (define-key evil-inner-text-objects-map "b" 'evil-surround-between-inner-text-object)
+  (define-key evil-outer-text-objects-map "b" 'evil-surround-between-outer-text-object))
 
 (provide 'evil-surround)
 
