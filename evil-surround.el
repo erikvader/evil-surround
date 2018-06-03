@@ -174,12 +174,35 @@ This is a cons cell (LEFT . RIGHT), both strings."
      (t
       (cons (format "%c" char) (format "%c" char))))))
 
+(defun evil-surround-lookup-key (char outer)
+  "Returns the textobject function from CHAR. If OUTER is non-nil,
+outer text objects are searched for, if nil then inner objects
+considered.
+
+If no text objects is found, nil is returned.
+
+This searches in `evil-operator-state-local-map',
+`evil-visual-state-local-map' and either
+`evil-outer-text-objects-map' or `evil-inner-text-objects-map'
+depending on OUTER. "
+  (let* ((map (if outer evil-outer-text-objects-map evil-inner-text-objects-map))
+         (prefix (if outer "a" "i"))
+         (key (kbd (format "%s %c" prefix char))))
+    (or
+     (and
+      (evil-operator-state-p)
+      (evil-lookup-key evil-operator-state-local-map key))
+     (and
+      (evil-visual-state-p)
+      (evil-lookup-key evil-visual-state-local-map key))
+     (evil-lookup-key map (kbd (string char))))))
+
 (defun evil-surround-outer-overlay (char)
   "Return outer overlay for the delimited range represented by CHAR.
 This overlay includes the delimiters.
 See also `evil-surround-inner-overlay'."
-  (let ((outer (lookup-key evil-outer-text-objects-map (string char))))
-    (when (functionp outer)
+  (let ((outer (evil-surround-lookup-key char t)))
+    (when outer
       (setq outer (funcall outer))
       (when (evil-range-p outer)
         (evil-surround-trim-whitespace-from-range outer "[[:space:]]")
@@ -203,8 +226,8 @@ See also `evil-surround-inner-overlay'."
   "Return inner overlay for the delimited range represented by CHAR.
 This overlay excludes the delimiters.
 See also `evil-surround-outer-overlay'."
-  (let ((inner (lookup-key evil-inner-text-objects-map (string char))))
-    (when (functionp inner)
+  (let ((inner (evil-surround-lookup-key char nil)))
+    (when inner
       (setq inner (funcall inner))
       (when (evil-range-p inner)
         (when (eq (char-syntax char) ?\()
