@@ -353,14 +353,15 @@ If OPERATION is `change', call `evil-surround-change'.
 if OPERATION is `delete', call `evil-surround-delete'.
 Otherwise call `evil-surround-region'."
   (interactive (evil-surround-interactive-setup))
-  (cond
-   ((eq operation 'change)
-    (call-interactively 'evil-surround-change))
-   ((eq operation 'delete)
-    (call-interactively 'evil-surround-delete))
-   (t
-    (evil-surround-setup-surround-line-operators)
-    (evil-surround-call-with-repeat 'evil-surround-region))))
+  (save-excursion
+    (cond
+     ((eq operation 'change)
+      (call-interactively 'evil-surround-change))
+     ((eq operation 'delete)
+      (call-interactively 'evil-surround-delete))
+     (t
+      (evil-surround-setup-surround-line-operators)
+      (evil-surround-call-with-repeat 'evil-surround-region)))))
 
 (evil-define-command evil-Surround-edit (operation)
   "Like evil-surround-edit, but for surrounding with additional new-lines.
