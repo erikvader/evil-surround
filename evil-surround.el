@@ -63,7 +63,7 @@
     (?> . ("<" . ">"))
     (?t . evil-surround-read-tag)
     (?< . evil-surround-read-tag)
-    (?f . evil-surround-function)
+    (?f . evil-surround-special)
     (?b . evil-surround-between)
     (?g . evil-surround-generic))
   "Association list of surround items.
@@ -111,6 +111,11 @@ This only affects inserting pairs, not deleting or changing them."
   :type '(repeat symbol)
   :group 'evil-surround)
 
+(defcustom evil-surround-shell-modes '(shell-script-mode sh-mode)
+  "List of shell-scripting-related modes"
+  :type '(repeat symbol)
+  :group 'evil-surround)
+
 (defcustom evil-surround-operator-alist
   '((evil-change . change)
     (evil-delete . delete))
@@ -143,6 +148,13 @@ Each item is of the form (OPERATOR . OPERATION)."
     (when evil-surround-record-repeat
       (evil-repeat-record res))
     res))
+
+(defun evil-surround-special ()
+  "Do something special depending on the major mode"
+  (cond ((member major-mode evil-surround-shell-modes)
+         (cons "\"$(" ")\""))
+        (t
+         (evil-surround-function))))
 
 (defun evil-surround-function ()
   "Read a functionname from the minibuffer and wrap selection in function call"
