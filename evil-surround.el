@@ -61,9 +61,9 @@
     ;; (?b . ("(" . ")"))
     (?B . ("{" . "}"))
     (?> . ("<" . ">"))
-    (?t . evil-surround-t-special)
-    (?< . evil-surround-t-special)
-    (?f . evil-surround-special)
+    (?t . evil-surround-special-t)
+    (?< . evil-surround-special-t)
+    (?f . evil-surround-special-f)
     (?b . evil-surround-between)
     (?g . evil-surround-generic))
   "Association list of surround items.
@@ -154,32 +154,75 @@ Each item is of the form (OPERATOR . OPERATION)."
       (evil-repeat-record res))
     res))
 
-(defun evil-surround-t-special ()
-  "Do something special depending on the major mode, variant 2"
-  (cond ((member major-mode evil-surround-rust-modes)
-         (let ((fname (evil-surround-read-from-minibuffer "" "")))
-           (cons (format "%s<" fname) ">")))
-        (t
-         (evil-surround-read-tag))))
+; special ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun evil-surround-special ()
-  "Do something special depending on the major mode"
-  (cond ((member major-mode evil-surround-shell-modes)
-         (cons "\"$(" ")\""))
-        (t
-         (evil-surround-function))))
+(defvar evil-surround-specials-f '((t . nil))
+  "Defines what pair should be inserted in a certain mode when f is pressed.
+This is a list on the form (((modes..) . func)..) where func will be
+used in modes to create a surround pair.
+Exactly one can be on the form ((t . func)), which is the default function to run.")
 
-(defun evil-surround-function ()
-  "Read a functionname from the minibuffer and wrap selection in function call"
-  (let ((fname (evil-surround-read-from-minibuffer "" ""))
-        (deli (cond ((member major-mode evil-surround-lisp-modes)
-                     (cons "(%s " ")"))
-                    ((member major-mode evil-surround-latex-modes)
-                     (cons "\\%s{" "}"))
-                    (t
-                     (cons "%s(" ")")))))
-    (cons (format (car deli) (or fname ""))
-          (cdr deli))))
+(defvar evil-surround-specials-t '((t . nil))
+  "see `evil-surround-specials-f'")
+
+(defmacro evil-surround-add-to (slist modes f)
+  "Adds the association of modes -> f in `evil-surround-specials-t' (slist)
+Example:
+When t is pressed and in omg-mode or geez-mode, run random-func to find surround pair.
+  (evil-surround-add-to t '(omg-mode geez-mode) #'random-func)
+
+Same as above but sets the default one.
+  (evil-surround-add-to f t #'random-func-again)"
+  (let ((tmodes (gensym))
+        (tf (gensym))
+        (slist (intern-soft (concat "evil-surround-specials-" (symbol-name slist)))))
+    `(let ((,tmodes ,modes)
+           (,tf ,f))
+       (if (eq ,tmodes t)
+           (let ((getted (assq t ,slist)))
+             (when getted
+               (setf (cdr getted) ,tf)))
+         (push (cons ,tmodes ,tf)
+               ,slist)))))
+
+(defun evil-surround-execute-special (arg)
+  "runs the associated function in arg for the current major mode."
+  (let ((x (find-if
+            (lambda (x)
+              (or (eq x t) (apply #'derived-mode-p x)))
+            arg
+            :key #'car)))
+    (when x
+      (funcall (cdr x)))))
+
+(defun evil-surround-special-f ()
+  "`evil-surround-execute-special' but for `evil-surround-specials-f'"
+  (interactive)
+  (evil-surround-execute-special evil-surround-specials-f))
+
+(defun evil-surround-special-t ()
+  "`evil-surround-execute-special' but for `evil-surround-specials-t'"
+  (interactive)
+  (evil-surround-execute-special evil-surround-specials-t))
+
+(defmacro evil-surround-generic-read (leftf rightf)
+  "Returns a function that reads som input from the user and puts it with `format' on leftf."
+  `(lambda ()
+     (let ((fname (evil-surround-read-from-minibuffer "" "")))
+       (cons (format ,leftf fname) ,rightf))))
+
+(defmacro evil-surround-generic-const (leftf rightf)
+  "returns a function that just returns (cons leftf rightf)"
+  `(lambda ()
+     (cons ,leftf ,rightf)))
+
+(evil-surround-add-to t t #'evil-surround-read-tag)
+(evil-surround-add-to t evil-surround-rust-modes (evil-surround-generic-read "%s<" ">"))
+
+(evil-surround-add-to f t (evil-surround-generic-read "%s(" ")"))
+(evil-surround-add-to f evil-surround-lisp-modes (evil-surround-generic-read "(%s " ")"))
+(evil-surround-add-to f evil-surround-latex-modes (evil-surround-generic-read "\\%s{" "}"))
+(evil-surround-add-to f evil-surround-shell-modes (evil-surround-generic-const "\"$(" ")\""))
 
 (defun evil-surround-read-tag ()
   "Read a XML tag from the minibuffer."
