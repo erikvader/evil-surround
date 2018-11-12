@@ -61,8 +61,8 @@
     ;; (?b . ("(" . ")"))
     (?B . ("{" . "}"))
     (?> . ("<" . ">"))
-    (?t . evil-surround-read-tag)
-    (?< . evil-surround-read-tag)
+    (?t . evil-surround-t-special)
+    (?< . evil-surround-t-special)
     (?f . evil-surround-special)
     (?b . evil-surround-between)
     (?g . evil-surround-generic))
@@ -116,6 +116,11 @@ This only affects inserting pairs, not deleting or changing them."
   :type '(repeat symbol)
   :group 'evil-surround)
 
+(defcustom evil-surround-rust-modes '(rust-mode)
+  "List of rust modes"
+  :type '(repeat symbol)
+  :group 'evil-surround)
+
 (defcustom evil-surround-operator-alist
   '((evil-change . change)
     (evil-delete . delete))
@@ -148,6 +153,14 @@ Each item is of the form (OPERATOR . OPERATION)."
     (when evil-surround-record-repeat
       (evil-repeat-record res))
     res))
+
+(defun evil-surround-t-special ()
+  "Do something special depending on the major mode, variant 2"
+  (cond ((member major-mode evil-surround-rust-modes)
+         (let ((fname (evil-surround-read-from-minibuffer "" "")))
+           (cons (format "%s<" fname) ">")))
+        (t
+         (evil-surround-read-tag))))
 
 (defun evil-surround-special ()
   "Do something special depending on the major mode"
