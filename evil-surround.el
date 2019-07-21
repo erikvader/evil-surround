@@ -187,7 +187,7 @@ Same as above but sets the default one.
 
 (defun evil-surround-execute-special (arg)
   "runs the associated function in arg for the current major mode."
-  (let ((x (find-if
+  (let ((x (cl-find-if
             (lambda (x)
               (or (eq x t) (apply #'derived-mode-p x)))
             arg
